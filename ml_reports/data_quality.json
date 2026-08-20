@@ -1,0 +1,33 @@
+{
+  "rows": 8523,
+  "columns": [
+    "Item_Identifier",
+    "Item_Weight",
+    "Item_Fat_Content",
+    "Item_Visibility",
+    "Item_Type",
+    "Item_MRP",
+    "Outlet_Identifier",
+    "Outlet_Establishment_Year",
+    "Outlet_Size",
+    "Outlet_Location_Type",
+    "Outlet_Type",
+    "Item_Outlet_Sales"
+  ],
+  "missing": {
+    "Item_Identifier": 0,
+    "Item_Weight": 1463,
+    "Item_Fat_Content": 0,
+    "Item_Visibility": 0,
+    "Item_Type": 0,
+    "Item_MRP": 0,
+    "Outlet_Identifier": 0,
+    "Outlet_Establishment_Year": 0,
+    "Outlet_Size": 2410,
+    "Outlet_Location_Type": 0,
+    "Outlet_Type": 0,
+    "Item_Outlet_Sales": 0
+  },
+  "duplicates": 0,
+  "dataset_hash": "6f1b47d794ff393663517a075c3648baf413d0f1d687878b21c806d293ec2e41"
+}

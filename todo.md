@@ -1,0 +1,18 @@
+# Project TODO
+
+- [x] Build the cream/off-white and muted-red design system with refined typography and responsive layout
+- [x] Create dashboard home with artifact metrics, baseline-versus-final comparison cards, and data quality summary
+- [x] Add experiment tracker page with sortable `experiments.csv` table for all five model candidates
+- [x] Add segment performance page with MAE, RMSE, and R² bar charts for the requested segment fields
+- [x] Add batch prediction upload flow backed by a Python subprocess invoking the Ridge pipeline artifact
+- [x] Add error analysis page with largest-error table and residual distribution chart
+- [x] Add model metadata panel with artifact version, dataset hash, feature version, training timestamp, hyperparameters, and code version
+- [x] Add MLOps status page covering drift strategy, retraining policy, model versioning, and CI/CD status
+- [x] Add backend data contracts, file upload validation, friendly errors, and logging
+- [x] Review persistence requirement; the requested dashboard is fully served from versioned ML report artifacts, so no extra prediction-history table was justified
+- [x] Add or update Vitest coverage for backend procedures and prediction integration
+- [x] Verify production build, backend startup, responsive visuals, routes, and interactive states
+- [x] Add safe backend logging for report loading and prediction request/result/failure events
+- [x] Add Vitest coverage for the successful Python-backed prediction path
+- [x] Verify mobile layout at a small viewport and capture the responsive dashboard states
+- [x] Add dataset hash to the model metadata panel itself, not only the data quality card

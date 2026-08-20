@@ -1,33 +1,95 @@
-import { useAuth } from "@/_core/hooks/useAuth";
+import { useMemo, useState } from "react";
+import { Link, useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
+import DashboardLayout from "@/components/DashboardLayout";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ResponsiveContainer, Tooltip as ChartTooltip, XAxis, YAxis } from "recharts";
+import { ArrowDownRight, ArrowUpRight, Check, ChevronDown, CircleHelp, Database, FileUp, Filter, Info, LockKeyhole, RefreshCw, Sparkles, UploadCloud } from "lucide-react";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
-export default function Home() {
-  // The useAuth hook provides authentication state.
-  // To implement login/logout, call logout(), or start login from an event
-  // handler: onClick={() => startLogin()} (imported from "@/const"). Never call
-  // startLogin() during render (no href={startLogin()}) — it mints a one-time
-  // nonce cookie and must run only at the moment of navigation.
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
+const red = "#b85c5c";
+const ink = "#24201f";
+const fmt = (value: unknown, digits = 2) => typeof value === "number" ? value.toLocaleString(undefined, { maximumFractionDigits: digits }) : "—";
+const pct = (value: unknown) => typeof value === "number" ? `${(value * 100).toFixed(1)}%` : "—";
 
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
-
-  return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
-    </div>
-  );
+function PageIntro({ eyebrow, title, copy, action }: { eyebrow: string; title: string; copy: string; action?: React.ReactNode }) {
+  return <div className="mb-8 flex flex-col justify-between gap-5 lg:flex-row lg:items-end"><div><p className="eyebrow mb-3">{eyebrow}</p><h1 className="display-title">{title}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">{copy}</p></div>{action}</div>;
 }
+
+function MetricCard({ label, value, helper, tone = "default" }: { label: string; value: string; helper: string; tone?: "default" | "red" | "dark" }) {
+  return <Card className={`metric-card ${tone === "red" ? "metric-red" : tone === "dark" ? "metric-dark" : ""}`}><CardContent className="p-5"><div className="flex items-center justify-between"><span className="eyebrow">{label}</span><CircleHelp className="h-4 w-4 opacity-50" /></div><div className="mt-5 text-3xl font-semibold tracking-[-0.04em]">{value}</div><p className="mt-2 text-xs opacity-70">{helper}</p></CardContent></Card>;
+}
+
+function CompareCard({ label, baseline, final, lowerIsBetter = true }: { label: string; baseline: number | undefined; final: number | undefined; lowerIsBetter?: boolean }) {
+  const improvement = baseline && final ? ((baseline - final) / baseline) * 100 : 0;
+  const positive = lowerIsBetter ? improvement > 0 : improvement < 0;
+  return <Card className="surface-card"><CardContent className="p-5"><div className="eyebrow">{label}</div><div className="mt-5 grid grid-cols-2 gap-4"><div><p className="text-xs text-[var(--muted)]">Baseline</p><p className="mt-1 text-lg font-semibold">{fmt(baseline)}</p></div><div><p className="text-xs text-[var(--muted)]">Final</p><p className="mt-1 text-lg font-semibold text-[var(--red)]">{fmt(final)}</p></div></div><div className={`mt-5 flex items-center gap-1 text-xs font-semibold ${positive ? "text-emerald-700" : "text-[var(--muted)]"}`}>{positive ? <ArrowDownRight className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />} {Math.abs(improvement).toFixed(1)}% vs baseline</div></CardContent></Card>;
+}
+
+function OverviewPage() {
+  const { data, isLoading, refetch } = trpc.dashboard.overview.useQuery();
+  if (isLoading || !data) return <LoadingState />;
+  const { metadata, quality, baseline, final } = data;
+  return <div className="space-y-8">
+    <PageIntro eyebrow="Model control room / 01" title="A sharper view of the sales signal." copy="A calm, decision-ready workspace for the BigMart prediction system — from model quality to operational readiness." action={<Button variant="outline" onClick={() => refetch()} className="rounded-xl border-[var(--line)] bg-white/50"><RefreshCw className="mr-2 h-4 w-4" />Refresh data</Button>} />
+    <section className="hero-panel"><div className="max-w-xl"><div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs text-white/70"><Sparkles className="h-3.5 w-3.5 text-[#edb2a9]" />Production artifact connected</div><h2 className="max-w-lg text-3xl font-semibold tracking-[-0.04em] text-white md:text-5xl">Confidence is built from the details.</h2><p className="mt-5 max-w-lg text-sm leading-7 text-white/65">Ridge Regression · log1p target · deterministic feature pipeline · model version {metadata.model_version}</p></div><div className="hero-orbit"><div className="orbit-ring orbit-ring-one" /><div className="orbit-ring orbit-ring-two" /><div className="orbit-core"><span>R²</span><strong>{metadata.metrics.holdout_r2.toFixed(3)}</strong></div></div></section>
+    <div className="grid gap-4 md:grid-cols-3"><MetricCard label="R²" value={metadata.metrics.holdout_r2.toFixed(3)} helper="Holdout explained variance · final model" tone="red" /><MetricCard label="MAE" value={fmt(metadata.metrics.holdout_mae)} helper="Mean absolute error · original sales scale" /><MetricCard label="RMSE" value={fmt(metadata.metrics.holdout_rmse)} helper="Root mean squared error · original sales scale" tone="dark" /></div>
+    <section><div className="section-heading"><div><p className="eyebrow">Performance comparison</p><h2>Baseline to final</h2></div><Badge className="soft-badge">5 candidates evaluated</Badge></div><div className="grid gap-4 md:grid-cols-3"><CompareCard label="R²" baseline={baseline.r2 as number} final={final.r2 as number} lowerIsBetter={false} /><CompareCard label="MAE" baseline={baseline.mae as number} final={final.mae as number} /><CompareCard label="RMSE" baseline={baseline.rmse as number} final={final.rmse as number} /></div></section>
+    <section className="grid gap-4 lg:grid-cols-[1.2fr_.8fr]"><Card className="surface-card"><CardHeader className="flex flex-row items-start justify-between"><div><p className="eyebrow">Data quality snapshot</p><CardTitle className="mt-2">The evidence behind the model</CardTitle></div><DatabaseGlyph /></CardHeader><CardContent><div className="grid gap-3 sm:grid-cols-2"><QualityStat label="Rows" value="8,523" /><QualityStat label="Item_Weight missing" value="17.17%" /><QualityStat label="Outlet_Size missing" value="28.28%" /><QualityStat label="Zero visibility" value={fmt(quality.zero_visibility, 0)} /></div><div className="mt-5 rounded-xl bg-[var(--cream-2)] p-4"><p className="eyebrow">Dataset SHA-256</p><p className="mt-2 break-all font-mono text-[11px] leading-5 text-[var(--muted)]">{metadata.dataset_hash}</p></div></CardContent></Card><Card className="surface-card"><CardHeader><p className="eyebrow">Artifact metadata</p><CardTitle className="mt-2">Model provenance</CardTitle></CardHeader><CardContent className="space-y-4"><MetaRow label="Artifact version" value={metadata.model_version} /><MetaRow label="Dataset SHA-256" value={metadata.dataset_hash} /><MetaRow label="Feature version" value={metadata.feature_version} /><MetaRow label="Training timestamp" value={new Date(metadata.training_timestamp).toLocaleString()} /><MetaRow label="Code version" value={metadata.code_version} /><MetaRow label="Hyperparameters" value={JSON.stringify(metadata.hyperparameters)} /></CardContent></Card></section>
+  </div>;
+}
+
+function QualityStat({ label, value }: { label: string; value: string }) { return <div className="rounded-xl border border-[var(--line)] bg-white/45 p-4"><p className="text-xs text-[var(--muted)]">{label}</p><p className="mt-2 text-xl font-semibold tracking-[-0.03em]">{value}</p></div>; }
+function MetaRow({ label, value }: { label: string; value: string }) { return <div className="flex items-start justify-between gap-4 border-b border-[var(--line)] pb-3 last:border-0 last:pb-0"><span className="text-xs text-[var(--muted)]">{label}</span><span className="max-w-[60%] text-right text-xs font-medium">{value}</span></div>; }
+function DatabaseGlyph() { return <div className="rounded-xl bg-[#f2dfdb] p-3 text-[var(--red)]"><Database className="h-5 w-5" /></div>; }
+
+function LoadingState() { return <div className="flex min-h-[50vh] items-center justify-center"><div className="text-center"><div className="mx-auto mb-4 h-8 w-8 animate-spin rounded-full border-2 border-[var(--line)] border-t-[var(--red)]" /><p className="text-sm text-[var(--muted)]">Loading model intelligence…</p></div></div>; }
+function ErrorState({ message }: { message: string }) { return <div className="rounded-2xl border border-[#e3b5af] bg-[#fff5f3] p-6 text-sm text-[#8d4545]">{message}</div>; }
+
+function ExperimentsPage() {
+  const { data, isLoading, error } = trpc.experiments.list.useQuery();
+  const [sortKey, setSortKey] = useState("cv_mae_mean");
+  const [ascending, setAscending] = useState(true);
+  if (isLoading) return <LoadingState />;
+  if (error || !data) return <ErrorState message="Experiment registry could not be loaded." />;
+  const sorted = [...data].sort((a: any, b: any) => { const av = a[sortKey]; const bv = b[sortKey]; return ascending ? Number(av) - Number(bv) : Number(bv) - Number(av); });
+  const sort = (key: string) => { if (key === sortKey) setAscending(value => !value); else { setSortKey(key); setAscending(true); } };
+  return <div className="space-y-8"><PageIntro eyebrow="Experiment tracker / 02" title="Every run, in one frame." copy="Compare the five candidate models across cross-validation and holdout performance. Click a metric header to sort." /><Card className="surface-card overflow-hidden"><CardHeader className="flex flex-row items-center justify-between"><div><p className="eyebrow">Experiment registry</p><CardTitle className="mt-2">Model candidates</CardTitle></div><Badge className="soft-badge">{data.length} runs</Badge></CardHeader><CardContent className="p-0"><div className="overflow-x-auto"><table className="data-table"><thead><tr><th>Experiment</th><th>Model</th><th onClick={() => sort("cv_mae_mean")}>CV MAE <SortIcon active={sortKey === "cv_mae_mean"} ascending={ascending} /></th><th onClick={() => sort("cv_rmse_mean")}>CV RMSE <SortIcon active={sortKey === "cv_rmse_mean"} ascending={ascending} /></th><th onClick={() => sort("cv_r2_mean")}>CV R² <SortIcon active={sortKey === "cv_r2_mean"} ascending={ascending} /></th><th>Holdout MAE</th><th>Holdout RMSE</th><th>Holdout R²</th></tr></thead><tbody>{sorted.map((row: any, index: number) => <tr key={row.experiment_id}><td><div className="flex items-center gap-2"><span className={`rank-dot ${index === 0 ? "rank-best" : ""}`}>{index + 1}</span><span className="font-medium">{row.experiment_id}</span></div></td><td><Badge variant="outline" className="font-normal">{row.model}</Badge></td><td>{fmt(row.cv_mae_mean)}</td><td>{fmt(row.cv_rmse_mean)}</td><td>{Number(row.cv_r2_mean).toFixed(4)}</td><td>{fmt(row.holdout_mae)}</td><td>{fmt(row.holdout_rmse)}</td><td className="font-semibold">{Number(row.holdout_r2).toFixed(4)}</td></tr>)}</tbody></table></div></CardContent></Card></div>;
+}
+function SortIcon({ active, ascending }: { active: boolean; ascending: boolean }) { return <ChevronDown className={`ml-1 inline h-3 w-3 transition-transform ${active && !ascending ? "rotate-180 text-[var(--red)]" : active ? "text-[var(--red)]" : "opacity-30"}`} />; }
+
+function SegmentsPage() {
+  const { data, isLoading, error } = trpc.segments.list.useQuery();
+  const [segment, setSegment] = useState("Outlet_Type");
+  if (isLoading) return <LoadingState />;
+  if (error || !data) return <ErrorState message="Segment metrics could not be loaded." />;
+  const rows = data.filter((row: any) => row.segment === segment).map((row: any) => ({ ...row, label: row.value.length > 24 ? `${row.value.slice(0, 24)}…` : row.value }));
+  return <div className="space-y-8"><PageIntro eyebrow="Segment performance / 03" title="Where does the model hold up?" copy="Break performance down by the operational dimensions that matter — without hiding the uneven edges." action={<div className="relative"><Filter className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[var(--muted)]" /><select value={segment} onChange={event => setSegment(event.target.value)} className="h-10 appearance-none rounded-xl border border-[var(--line)] bg-white/70 pl-9 pr-9 text-sm outline-none focus:border-[var(--red)]"><option>Outlet_Type</option><option>Outlet_Location_Type</option><option>Outlet_Size</option><option>Item_Type</option></select></div>} /><div className="grid gap-4 lg:grid-cols-3"><ChartCard title="MAE" subtitle="Lower is better" data={rows} dataKey="mae" /><ChartCard title="RMSE" subtitle="Lower is better" data={rows} dataKey="rmse" /><ChartCard title="R²" subtitle="Higher is better" data={rows} dataKey="r2" /></div><Card className="surface-card"><CardHeader><p className="eyebrow">Segment detail</p><CardTitle className="mt-2">{segment} breakdown</CardTitle></CardHeader><CardContent className="p-0"><div className="overflow-x-auto"><table className="data-table"><thead><tr><th>Value</th><th>Count</th><th>MAE</th><th>RMSE</th><th>R²</th></tr></thead><tbody>{rows.map((row: any) => <tr key={row.value}><td className="font-medium">{row.value}</td><td>{fmt(row.count, 0)}</td><td>{fmt(row.mae)}</td><td>{fmt(row.rmse)}</td><td>{Number(row.r2).toFixed(4)}</td></tr>)}</tbody></table></div></CardContent></Card></div>;
+}
+function ChartCard({ title, subtitle, data, dataKey }: { title: string; subtitle: string; data: any[]; dataKey: string }) { return <Card className="surface-card"><CardHeader><p className="eyebrow">{title}</p><CardTitle className="mt-2 text-base">{subtitle}</CardTitle></CardHeader><CardContent className="h-64 px-2"><ResponsiveContainer width="100%" height="100%"><BarChart data={data} margin={{ left: 0, right: 12, top: 8, bottom: 36 }}><CartesianGrid vertical={false} stroke="#e8ded7" /><XAxis dataKey="label" angle={-30} textAnchor="end" height={56} tick={{ fontSize: 10, fill: "#8b817c" }} axisLine={false} tickLine={false} /><YAxis tick={{ fontSize: 10, fill: "#8b817c" }} axisLine={false} tickLine={false} /><ChartTooltip cursor={{ fill: "#f7efe9" }} contentStyle={{ borderRadius: 12, border: "1px solid #e8ded7", fontSize: 12 }} /><Bar dataKey={dataKey} radius={[6, 6, 0, 0]} fill={red}>{data.map((_, index) => <Cell key={index} fill={index === 0 ? red : "#d5aaa2"} />)}</Bar></BarChart></ResponsiveContainer></CardContent></Card>; }
+
+function PredictionsPage() {
+  const [fileName, setFileName] = useState("");
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState("");
+  const mutation = trpc.predictions.run.useMutation({ onSuccess: setResult, onError: err => setError(err.message) });
+  const upload = (file?: File) => { if (!file) return; setFileName(file.name); setError(""); const reader = new FileReader(); reader.onload = () => mutation.mutate({ filename: file.name, csv: String(reader.result ?? "") }); reader.readAsText(file); };
+  return <div className="space-y-8"><PageIntro eyebrow="Batch prediction / 04" title="Move from rows to signal." copy="Upload a CSV with the trained feature columns. The backend invokes the versioned Ridge pipeline through a Python subprocess and returns a reviewable prediction sample." /><Card className="surface-card"><CardContent className="p-6 md:p-10"><label className="upload-zone" htmlFor="prediction-file"><input id="prediction-file" type="file" accept=".csv,text/csv" className="sr-only" onChange={event => upload(event.target.files?.[0])} /><div className="upload-icon"><UploadCloud className="h-6 w-6" /></div><p className="mt-4 text-base font-semibold">{fileName || "Drop a CSV here or browse"}</p><p className="mt-2 text-sm text-[var(--muted)]">Required fields match the trained artifact schema. Maximum file size: 5 MB.</p><Button type="button" variant="outline" className="mt-5 rounded-xl border-[var(--line)]" onClick={() => document.getElementById("prediction-file")?.click()}><FileUp className="mr-2 h-4 w-4" />Choose CSV</Button></label>{mutation.isPending && <div className="mt-5 flex items-center gap-2 text-sm text-[var(--muted)]"><div className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--line)] border-t-[var(--red)]" />Running Python inference…</div>}{error && <div className="mt-5 rounded-xl bg-[#fff4f1] p-4 text-sm text-[#934c45]">{error}</div>}</CardContent></Card>{result && <div className="space-y-4"><div className="grid gap-4 sm:grid-cols-3"><MetricCard label="Rows scored" value={fmt(result.rowCount, 0)} helper={`Artifact ${result.modelVersion}`} /><MetricCard label="Mean prediction" value={fmt(result.predictionSummary.mean)} helper="Original sales scale" /><MetricCard label="Median prediction" value={fmt(result.predictionSummary.median)} helper="Original sales scale" tone="red" /></div><Card className="surface-card overflow-hidden"><CardHeader><p className="eyebrow">Prediction preview</p><CardTitle className="mt-2">First 50 rows</CardTitle></CardHeader><CardContent className="p-0"><div className="max-h-[420px] overflow-auto"><table className="data-table"><thead><tr>{Object.keys(result.preview[0] ?? {}).slice(-6).map(key => <th key={key}>{key}</th>)}</tr></thead><tbody>{result.preview.map((row: any, index: number) => <tr key={index}>{Object.keys(result.preview[0] ?? {}).slice(-6).map(key => <td key={key}>{typeof row[key] === "number" ? fmt(row[key]) : String(row[key] ?? "—")}</td>)}</tr>)}</tbody></table></div></CardContent></Card></div>}</div>;
+}
+
+function ErrorsPage() {
+  const { data, isLoading, error } = trpc.errors.list.useQuery();
+  const bins = useMemo(() => {
+    const values = (data ?? []).map((row: any) => Number(row.error)).filter(Number.isFinite);
+    const ranges = ["≤ -2500", "-2500 to -1000", "-1000 to 0", "0 to 1000", "1000 to 2500", "> 2500"];
+    return ranges.map(label => ({ label, count: values.filter(value => label === "≤ -2500" ? value <= -2500 : label === "-2500 to -1000" ? value > -2500 && value <= -1000 : label === "-1000 to 0" ? value > -1000 && value <= 0 : label === "0 to 1000" ? value > 0 && value <= 1000 : label === "1000 to 2500" ? value > 1000 && value <= 2500 : value > 2500).length }));
+  }, [data]);
+  if (isLoading) return <LoadingState />;
+  if (error || !data) return <ErrorState message="Error analysis could not be loaded." />;
+  return <div className="space-y-8"><PageIntro eyebrow="Error analysis / 05" title="Study the misses, not just the mean." copy="The largest absolute errors reveal where the current signal is thin — and where the next feature may be hiding." /><div className="grid gap-4 lg:grid-cols-[.85fr_1.15fr]"><Card className="surface-card"><CardHeader><p className="eyebrow">Residual distribution</p><CardTitle className="mt-2">Signed errors</CardTitle></CardHeader><CardContent className="h-72 px-2"><ResponsiveContainer width="100%" height="100%"><BarChart data={bins} margin={{ left: 0, right: 8, top: 12, bottom: 32 }}><CartesianGrid vertical={false} stroke="#e8ded7" /><XAxis dataKey="label" angle={-25} textAnchor="end" height={48} tick={{ fontSize: 10, fill: "#8b817c" }} axisLine={false} tickLine={false} /><YAxis tick={{ fontSize: 10, fill: "#8b817c" }} axisLine={false} tickLine={false} /><ChartTooltip contentStyle={{ borderRadius: 12, border: "1px solid #e8ded7", fontSize: 12 }} /><Bar dataKey="count" fill={red} radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></CardContent></Card><Card className="surface-card overflow-hidden"><CardHeader><p className="eyebrow">Largest errors</p><CardTitle className="mt-2">Where the model missed hardest</CardTitle></CardHeader><CardContent className="p-0"><div className="max-h-[350px] overflow-auto"><table className="data-table"><thead><tr><th>Item</th><th>Outlet</th><th>Item_Type</th><th>Actual</th><th>Prediction</th><th>Absolute error</th></tr></thead><tbody>{data.slice(0, 25).map((row: any, index: number) => <tr key={index}><td className="font-medium">{row.Item_Identifier}</td><td>{row.Outlet_Identifier}</td><td>{row.Item_Type}</td><td>{fmt(row.Item_Outlet_Sales)}</td><td>{fmt(row.prediction)}</td><td className="font-semibold text-[var(--red)]">{fmt(row.absolute_error)}</td></tr>)}</tbody></table></div></CardContent></Card></div></div>;
+}
+
+function MlopsPage() { const { data, isLoading } = trpc.mlops.status.useQuery(); if (isLoading || !data) return <LoadingState />; return <div className="space-y-8"><PageIntro eyebrow="MLOps status / 06" title="A lightweight lifecycle, clearly governed." copy="The system keeps operational complexity proportional to the project: versioned evidence, tested artifacts, batch monitoring, and explicit retraining gates." /><div className="grid gap-4 md:grid-cols-2">{Object.entries(data).map(([key, item]: [string, any]) => <Card className="surface-card" key={key}><CardContent className="p-5"><div className="flex items-start justify-between gap-4"><div><p className="eyebrow">{key}</p><h3 className="mt-2 text-lg font-semibold">{item.status}</h3></div><div className="rounded-full bg-[#e9f4eb] p-2 text-emerald-700"><Check className="h-4 w-4" /></div></div><p className="mt-4 text-sm leading-6 text-[var(--muted)]">{item.detail}</p></CardContent></Card>)}</div><Card className="surface-card"><CardHeader><p className="eyebrow">Lifecycle</p><CardTitle className="mt-2">Candidate promotion path</CardTitle></CardHeader><CardContent><div className="lifecycle">{["New data", "Validation", "Train candidate", "Evaluate", "Quality gate", "Approve", "Version artifact"].map((step, index) => <div className="lifecycle-step" key={step}><span>{String(index + 1).padStart(2, "0")}</span><strong>{step}</strong>{index < 6 && <div className="lifecycle-line" />}</div>)}</div></CardContent></Card><Card className="surface-card"><CardHeader><p className="eyebrow">Model metadata</p><CardTitle className="mt-2">Artifact contract</CardTitle></CardHeader><CardContent className="grid gap-4 md:grid-cols-3"><div className="callout"><LockKeyhole className="h-4 w-4" /><span>Dataset identity is recorded with SHA-256.</span></div><div className="callout"><RefreshCw className="h-4 w-4" /><span>Retraining requires evaluation before approval.</span></div><div className="callout"><Info className="h-4 w-4" /><span>No request-latency monitoring is claimed for this batch system.</span></div></CardContent></Card></div>; }
+
+export default function Home() { const [location] = useLocation(); return <DashboardLayout><>{location === "/" && <OverviewPage />}{location === "/experiments" && <ExperimentsPage />}{location === "/segments" && <SegmentsPage />}{location === "/predictions" && <PredictionsPage />}{location === "/errors" && <ErrorsPage />}{location === "/mlops" && <MlopsPage />}</></DashboardLayout>; }
