@@ -16,3 +16,9 @@
 - [x] Add Vitest coverage for the successful Python-backed prediction path
 - [x] Verify mobile layout at a small viewport and capture the responsive dashboard states
 - [x] Add dataset hash to the model metadata panel itself, not only the data quality card
+- [x] Polish the repository README with project overview, architecture, setup, ML workflow, dashboard pages, testing, and deployment notes
+- [x] Add professional repository metadata files such as a license, contribution guide, and issue templates where appropriate
+- [x] Create a new private GitHub repository and push the complete project with a clean initial commit
+- [ ] Add a separate GitHub remote for `ms467154-coder/bigmart-sales-intelligence` without replacing the managed project remote
+- [ ] Commit the polished README and repository metadata files with a clean release commit
+- [ ] Push the release commit to GitHub and verify the private default branch reflects the latest project state
